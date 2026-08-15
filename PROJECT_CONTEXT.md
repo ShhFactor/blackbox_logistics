@@ -12,8 +12,8 @@ Last updated: 2026-08-15
 
 ## 1. What this project is
 
-A single-file Python script, `marketplace_simulator.py`, that simulates a small
-marketplace with buyers, sellers, and delivery drivers, then derives a
+A single-file Python script, `marketplace_sim_v1/marketplace_sim_v1.py`, that
+simulates a small marketplace with buyers, sellers, and delivery drivers, then derives a
 "priority" ordering of the drivers from how the deliveries played out.
 
 No third-party dependencies — only the standard library (`random`, `math`).
@@ -82,7 +82,7 @@ A **deadlock / circular-wait bug** was identified and is currently
 
 ---
 
-## 4. Key functions in `marketplace_simulator.py`
+## 4. Key functions in `marketplace_sim_v1/marketplace_sim_v1.py`
 
 | Function / Class | Purpose |
 |---|---|
@@ -114,7 +114,7 @@ A **deadlock / circular-wait bug** was identified and is currently
 ## 6. How to run
 
 ```bash
-python3 marketplace_simulator.py
+python3 marketplace_sim_v1/marketplace_sim_v1.py
 ```
 
 No install step, no dependencies beyond the Python standard library
@@ -152,6 +152,14 @@ This file was created to give any collaborator or new chat instance full
 context on the spec, current implementation, and history without needing
 the original conversation.
 
+**Update 5 — Three-person development pipeline added**
+Added `TEAM_PIPELINE.md` with role ownership, dependency-ordered delivery waves,
+LLM prompt and handoff rules, PR routing, merge gates, and repository settings.
+Added root `AGENTS.md` so separate coding instances follow the same context and
+safety rules, plus GitHub implementation-issue and pull-request templates.
+Corrected this file's script path to the actual nested file location. Simulator
+behavior was not changed.
+
 ---
 
 ## 8. Open items for future contributors
@@ -162,3 +170,16 @@ the original conversation.
   (multiple runs + one hand-worked example check).
 - Consider whether buyer/seller pairs should also be checked for any
   structural constraints (currently unconstrained beyond uniqueness).
+
+---
+
+## 9. Team delivery workflow
+
+- `TEAM_PIPELINE.md` is the source of truth for the three-person work split,
+  delivery order, review routing, and merge gates.
+- `AGENTS.md` contains mandatory instructions for every LLM coding instance.
+- `.github/ISSUE_TEMPLATE/implementation-task.md` defines bounded work items.
+- `.github/PULL_REQUEST_TEMPLATE.md` standardizes acceptance evidence, testing,
+  risk disclosure, and review readiness.
+- The existing simulator remains the behavioral source for the future
+  `simulation/` module until the extraction task in Wave 0 is implemented.
