@@ -12,6 +12,9 @@ Last updated: 2026-08-17
 
 ## 1. What this project is
 
+A single-file Python script, `marketplace_sim_v1/marketplace_sim_v1.py`, that
+simulates a small marketplace with buyers, sellers, and delivery drivers, then derives a
+"priority" ordering of the drivers from how the deliveries played out.
 A small Python project that simulates a marketplace with buyers, sellers,
 and delivery drivers, derives a "priority" ordering of the drivers from how
 deliveries played out, and then builds each driver's task list (who they
@@ -246,6 +249,20 @@ A **deadlock / circular-wait bug** was identified and is currently
 
 ---
 
+## 4. Key functions in `marketplace_sim_v1/marketplace_sim_v1.py`
+
+| Function / Class | Purpose |
+|---|---|
+| `NAME_POOL` | The 100 unique Indian names, asserted unique at load time. |
+| `pick_people(pool)` | Draws 11 unique names in one `random.sample` call: 6 for buyer/seller pairs + 5 for drivers. |
+| `build_transactions(buyer_seller_names)` | Builds the 3 transaction dicts with `B{i}`/`S{i}` labels and names. |
+| `assign_drivers_to_transactions(driver_labels)` | Retry-based random search: for each transaction, samples 3 drivers with remaining capacity > 0, shuffles their order, decrements capacity. Retries the whole draw if it paints itself into a corner. **No deadlock protection** (see §3). |
+| `DriverNode` | A node in the singly linked priority list (`label`, `xy`, `value`, `next`). |
+| `DriverPriorityLinkedList` | Minimal singly linked list with `append()` and iteration. |
+| `compute_driver_positions(transactions, driver_labels)` | Builds the `{driver: (x, y)}` hashmap per §2.7. |
+| `compute_priority_values(driver_xy)` | `{driver: sqrt(x^2 + y^2)}`. |
+| `build_priority_linked_list(driver_labels, driver_xy, driver_values)` | Builds the final sorted linked list (stable sort → ties preserve `D1..D5` order). |
+| `main()` | Orchestrates everything and prints all output sections below. |
 ## 6. Module reference
 
 | File | Contents | Purpose |
@@ -278,6 +295,7 @@ A **deadlock / circular-wait bug** was identified and is currently
 ## 8. How to run
 
 ```bash
+python3 marketplace_sim_v1/marketplace_sim_v1.py
 cd marketplace_sim_v1
 python3 main.py
 ```
@@ -321,6 +339,13 @@ This file was created to give any collaborator or new chat instance full
 context on the spec, current implementation, and history without needing
 the original conversation.
 
+**Update 5 — Three-person development pipeline added**
+Added `TEAM_PIPELINE.md` with role ownership, dependency-ordered delivery waves,
+LLM prompt and handoff rules, PR routing, merge gates, and repository settings.
+Added root `AGENTS.md` so separate coding instances follow the same context and
+safety rules, plus GitHub implementation-issue and pull-request templates.
+Corrected this file's script path to the actual nested file location. Simulator
+behavior was not changed.
 **Update 5 — Split into a multi-file project**
 The single `marketplace_sim_v1.py` script was broken up into
 `config.py`, `names.py`, `people.py`, `assignment.py`, `priority.py`,
@@ -364,6 +389,19 @@ and §4 describe the *intended* spec only, not verified behavior.
   (multiple runs + hand-worked example checks).
 - Consider whether buyer/seller pairs should also be checked for any
   structural constraints (currently unconstrained beyond uniqueness).
+
+---
+
+## 9. Team delivery workflow
+
+- `TEAM_PIPELINE.md` is the source of truth for the three-person work split,
+  delivery order, review routing, and merge gates.
+- `AGENTS.md` contains mandatory instructions for every LLM coding instance.
+- `.github/ISSUE_TEMPLATE/implementation-task.md` defines bounded work items.
+- `.github/PULL_REQUEST_TEMPLATE.md` standardizes acceptance evidence, testing,
+  risk disclosure, and review readiness.
+- The existing simulator remains the behavioral source for the future
+  `simulation/` module until the extraction task in Wave 0 is implemented.
 - `rectangle_value.py` and its `main.py` integration (§4) have not been
   reviewed or tested by Claude — only the spec is documented here. Worth
   a review pass against the acceptance tests in §4 when convenient.
