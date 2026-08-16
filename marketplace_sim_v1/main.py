@@ -17,10 +17,22 @@ from priority import (
     build_priority_linked_list,
 )
 from tasks import compute_driver_tasks
+from rectangle_value import get_corner_positions
 import display
 
 
 def main():
+    # ------------------------------------------------------------------
+    # Rectangle positions
+    # ------------------------------------------------------------------
+    positions = get_corner_positions()
+    
+    # Print the mapped output
+    print("\n=== Map Output ===")
+    for num, corner in positions.items():
+        print(f"Number {num}: {corner}")
+    print("\n")
+
     # ------------------------------------------------------------------
     # People + transactions
     # ------------------------------------------------------------------

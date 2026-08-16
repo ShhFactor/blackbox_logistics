@@ -6,7 +6,7 @@
 > without re-reading old conversations. Append to the Change Log, don't delete
 > old entries.
 
-Last updated: 2026-08-16
+Last updated: 2026-08-17
 
 ---
 
@@ -27,14 +27,15 @@ No third-party dependencies — only the standard library (`random`, `math`).
 blackbox_logistics/
 ├── PROJECT_CONTEXT.md
 └── marketplace_sim_v1/
-    ├── config.py        # shared constants
-    ├── names.py         # the 100-name pool
-    ├── people.py        # picks buyers/sellers/drivers, builds transaction records
-    ├── assignment.py     # capacity-constrained random driver assignment
-    ├── priority.py       # position hashmap -> priority value -> priority linked list
-    ├── tasks.py          # NEW: driver task hashmap (hand-off tuples)
-    ├── display.py        # all console-output formatting
-    └── main.py           # entry point — run this
+    ├── config.py           # shared constants
+    ├── names.py            # the 100-name pool
+    ├── people.py           # picks buyers/sellers/drivers, builds transaction records
+    ├── assignment.py       # capacity-constrained random driver assignment
+    ├── priority.py         # position hashmap -> priority value -> priority linked list
+    ├── tasks.py            # driver task hashmap (hand-off tuples)
+    ├── rectangle_value.py  # NEW: random rectangle corner value assignment (see §4)
+    ├── display.py          # all console-output formatting
+    └── main.py             # entry point — run this
 ```
 
 **As of Update 5, the project is no longer a single file.** It was
@@ -100,7 +101,124 @@ exists. See Update 5 in the Change Log.
 
 ---
 
-## 4. Explicitly NOT in the current version (rolled back)
+## 4. Random Rectangle Corner Assignment — Implementation Context
+
+> **Note:** this feature was implemented directly by a collaborator, in
+> `rectangle_value.py`, with `main.py` updated to use it. Claude did not
+> write or review that code — only this spec section, copied in verbatim
+> from the collaborator's requirements, is being tracked here so future
+> contributors (human or AI) have the full spec without needing to reread
+> old chat history.
+
+### Goal
+
+Implement a utility that randomly assigns the values `1`, `2`, and `3` to
+three of a rectangle's four corners. The one remaining corner must receive
+the value `0`.
+
+The assignment happens automatically. The user must not be asked to select a
+value or a corner.
+
+### Canonical data model
+
+Represent the four corners as dictionary/map keys:
+
+| Key | Corner | Coordinate |
+| --- | --- | --- |
+| `a` | bottom-left | `(min_x, min_y)` |
+| `b` | top-left | `(min_x, max_y)` |
+| `c` | top-right | `(max_x, max_y)` |
+| `d` | bottom-right | `(max_x, min_y)` |
+
+Return a dictionary whose keys are `a`, `b`, `c`, and `d`, and whose values
+are a random permutation of `[0, 1, 2, 3]`.
+
+Example result:
+
+```json
+{
+  "a": 2,
+  "b": 0,
+  "c": 3,
+  "d": 1
+}
+```
+
+The result can differ on every call.
+
+### Required behavior
+
+1. Use only the four corners. Do not use the center or edge midpoints.
+2. Assign each of `1`, `2`, and `3` exactly once.
+3. Assign `0` exactly once to the leftover corner.
+4. Include all four corner keys in every result.
+5. Choose the assignment randomly without user input.
+6. Do not assign the same value to multiple corners.
+
+### Language-neutral algorithm
+
+```text
+corners = ["a", "b", "c", "d"]
+values = shuffle([0, 1, 2, 3])
+result = map each corner to the value at the same index
+return result
+```
+
+Use the platform's secure/system random generator when unpredictability is
+important. Allow an optional seeded random generator when deterministic tests
+are needed.
+
+### Suggested API
+
+```text
+assignRandomCornerValues(optionalRandomGenerator) -> Dictionary<Corner, Integer>
+```
+
+If coordinates are also needed, expose them separately:
+
+```text
+getCorners(minX, minY, maxX, maxY) -> Dictionary<Corner, Point>
+```
+
+Keeping coordinates and random values separate makes the assignment reusable
+for rectangles of any size.
+
+### Rectangle validation
+
+When coordinates are accepted, require:
+
+```text
+min_x < max_x
+min_y < max_y
+```
+
+Reject zero-width, zero-height, or reversed rectangles.
+
+### Acceptance tests
+
+For every generated assignment:
+
+```text
+keys(result) == {"a", "b", "c", "d"}
+sorted(values(result)) == [0, 1, 2, 3]
+count(value == 0) == 1
+count(value in [1, 2, 3]) == 3
+```
+
+With a seeded random generator, repeated calls using the same seed should
+produce the same result. Tests should not expect a particular unseeded order.
+
+### Out of scope
+
+- User-selected assignments
+- Points inside the rectangle
+- The rectangle's center
+- Edge midpoints
+- Duplicate assigned values
+
+---
+
+## 5. Explicitly NOT in the current version (rolled back)
 
 A **deadlock / circular-wait bug** was identified and is currently
 **unresolved by design** (per explicit user instruction to roll back):
@@ -128,22 +246,23 @@ A **deadlock / circular-wait bug** was identified and is currently
 
 ---
 
-## 5. Module reference
+## 6. Module reference
 
 | File | Contents | Purpose |
 |---|---|---|
 | `config.py` | `NUM_TRANSACTIONS`, `NUM_DRIVERS`, `DRIVERS_PER_TRANSACTION`, `MAX_VALUE_PER_DRIVER` | Single source of truth for shared constants. |
 | `names.py` | `NAME_POOL` | The 100 unique Indian names, asserted unique at import time. |
 | `people.py` | `pick_people(pool)`, `build_transactions(buyer_seller_names)` | Draws 11 unique names (6 buyer/seller + 5 drivers); builds the 3 transaction dicts with `B{i}`/`S{i}` labels and names. |
-| `assignment.py` | `assign_drivers_to_transactions(driver_labels)` | Retry-based random search: for each transaction, samples 3 drivers with remaining capacity > 0, shuffles their order, decrements capacity. **No deadlock protection** (see §4). |
+| `assignment.py` | `assign_drivers_to_transactions(driver_labels)` | Retry-based random search: for each transaction, samples 3 drivers with remaining capacity > 0, shuffles their order, decrements capacity. **No deadlock protection** (see §5). |
 | `priority.py` | `DriverNode`, `DriverPriorityLinkedList`, `compute_driver_positions()`, `compute_priority_values()`, `build_priority_linked_list()` | Builds the `{driver: (x, y)}` hashmap, converts to `sqrt(x^2+y^2)`, builds the ascending singly linked list. |
 | `tasks.py` | `compute_driver_tasks(transactions, ordered_driver_labels)` | **NEW.** Builds the `{driver: [(str, str), ...]}` hand-off task hashmap per §3.10. |
+| `rectangle_value.py` | (implemented by collaborator, not by Claude) | Random rectangle corner value assignment — full spec in §4. |
 | `display.py` | `print_people_pool()`, `print_initial_hashmap()`, `print_transactions()`, `print_final_hashmap()`, `print_driver_positions()`, `print_priority_values()`, `print_priority_linked_list()`, `print_driver_tasks()` | All console-output formatting, kept separate from computation so either can be edited independently. |
 | `main.py` | `main()` | Entry point — imports every module above and runs one full simulation. **Run this file.** |
 
 ---
 
-## 6. Output sections, in order
+## 7. Output sections, in order
 
 1. People Pool Selected (buyers, sellers, drivers with real names)
 2. Initial Hashmap (`{D1: 0, ..., D5: 0}`)
@@ -156,7 +275,7 @@ A **deadlock / circular-wait bug** was identified and is currently
 
 ---
 
-## 7. How to run
+## 8. How to run
 
 ```bash
 cd marketplace_sim_v1
@@ -172,7 +291,7 @@ No install step, no dependencies beyond the Python standard library
 
 ---
 
-## 8. Change Log
+## 9. Change Log
 
 **Update 1 — Initial build**
 Built the core simulator: 100-name pool, 3 buyer/seller pairs, 5 drivers,
@@ -185,7 +304,7 @@ waiting on each other's product across two transactions). Implemented a
 fix: fixed global driver priority ranking + `is_acyclic()` Kahn's-algorithm
 verification. Verified working across 8 runs. **User then asked to roll
 this back entirely** before proceeding with Update 3 — the deadlock fix is
-NOT in the current code. See §4 for details on what the fix was, in case
+NOT in the current code. See §5 for details on what the fix was, in case
 it needs to be reintroduced later.
 
 **Update 3 — Driver position hashmap + priority linked list**
@@ -225,13 +344,26 @@ the rule's `('D2', 'P2')`) was a typo in their original prompt, not an
 exception to the rule. No code changes required — `tasks.py` was already
 correct. §3.10 and the open items list updated to close this out.
 
+**Update 8 — Random Rectangle Corner Assignment spec added (docs only)**
+User implemented a new, separate feature directly (`rectangle_value.py`,
+plus an update to `main.py`) without Claude's involvement in the code.
+Per explicit request, **only this file was touched**: the collaborator's
+full spec was added verbatim as new §4, `rectangle_value.py` was added
+to the repo layout diagram and the module reference table, and later
+section numbers were bumped accordingly. Claude has not seen, written,
+or verified `rectangle_value.py` or the `main.py` changes — this entry
+and §4 describe the *intended* spec only, not verified behavior.
+
 ---
 
-## 9. Open items for future contributors
+## 10. Open items for future contributors
 
-- Deadlock protection (§4) is currently **off**. Decide whether/when to
+- Deadlock protection (§5) is currently **off**. Decide whether/when to
   re-add it, and whether it should be default-on or opt-in.
 - No automated test suite yet — verification so far has been manual
   (multiple runs + hand-worked example checks).
 - Consider whether buyer/seller pairs should also be checked for any
   structural constraints (currently unconstrained beyond uniqueness).
+- `rectangle_value.py` and its `main.py` integration (§4) have not been
+  reviewed or tested by Claude — only the spec is documented here. Worth
+  a review pass against the acceptance tests in §4 when convenient.
