@@ -14,6 +14,10 @@ Closes #
 
 -
 
+## Important implementation decisions
+
+-
+
 ## Acceptance evidence
 
 <!-- Map each issue acceptance criterion to a test, screenshot, or observation. -->
@@ -44,6 +48,7 @@ Commands and results:
 - Payment/integration impact:
 - Deployment or rollback notes:
 - Monitoring/logging impact:
+- Known limitations:
 
 ## User-facing evidence
 

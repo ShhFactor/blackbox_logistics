@@ -6,7 +6,7 @@
 > without re-reading old conversations. Append to the Change Log, don't delete
 > old entries.
 
-Last updated: 2026-08-17
+Last updated: 2026-08-18
 
 ---
 
@@ -29,8 +29,10 @@ blackbox_logistics/
 ├── PROJECT_CONTEXT.md
 ├── AGENTS.md
 ├── TEAM_PIPELINE.md
+├── CONTRIBUTING.md
 ├── .github/
 │   ├── ISSUE_TEMPLATE/implementation-task.md
+│   ├── ISSUE_TEMPLATE/bug-report.md
 │   └── PULL_REQUEST_TEMPLATE.md
 └── marketplace_sim_v1/
     ├── config.py           # shared constants
@@ -55,8 +57,11 @@ the module set above and should be deleted locally if it still exists.
 
 - `TEAM_PIPELINE.md` is the source of truth for the three-person work split,
   delivery order, review routing, and merge gates.
+- `CONTRIBUTING.md` is the source of truth for issue, branch, commit, and
+  pull-request mechanics used by all contributors.
 - `AGENTS.md` contains mandatory instructions for every LLM coding instance.
 - `.github/ISSUE_TEMPLATE/implementation-task.md` defines bounded work items.
+- `.github/ISSUE_TEMPLATE/bug-report.md` defines reproducible defect reports.
 - `.github/PULL_REQUEST_TEMPLATE.md` standardizes acceptance evidence, testing,
   risk disclosure, and review readiness.
 - The existing simulator remains the behavioral source for the future
@@ -424,6 +429,14 @@ accumulated from earlier hand-edits (duplicate "Update 5" entries,
 duplicate "§4"/"§9" headers, a stale description of the deleted
 single-file script, duplicate "How to run" commands) — see the note at
 the top of this Change Log section.
+
+**Update 11 — GitHub collaboration workflow implemented**
+Added `CONTRIBUTING.md` as the canonical issue-first collaboration workflow,
+including issue scope, issue-numbered branches, commit and pull-request rules,
+review readiness, structured labels, blocked-work handling, project statuses,
+and coding-agent behavior. Aligned `AGENTS.md` and `TEAM_PIPELINE.md` with it,
+expanded the implementation issue and pull-request templates, and added a bug
+report template. Simulator behavior was not changed.
 
 ---
 
