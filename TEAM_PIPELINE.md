@@ -160,8 +160,8 @@ Each person follows this sequence:
 
 1. Select one assigned GitHub issue with written acceptance criteria.
 2. Confirm that its dependencies have merged into `main`.
-3. Pull `main`, then create `feat/<issue-number>-<short-name>` or
-   `fix/<issue-number>-<short-name>`.
+3. Pull `main`, then create `feature/<issue-number>-<short-name>` or
+   `bugfix/<issue-number>-<short-name>` as defined in `CONTRIBUTING.md`.
 4. Start the LLM instance with the prompt contract in section 5.
 5. Ask the LLM to inspect existing code and propose a short plan before edits.
 6. Implement only the issue scope and add tests with the implementation.
@@ -179,7 +179,8 @@ Never give an LLM permission to merge its own pull request.
 Copy this structure into each new coding conversation:
 
 ```text
-Read AGENTS.md, PROJECT_CONTEXT.md, and TEAM_PIPELINE.md completely.
+Read AGENTS.md, PROJECT_CONTEXT.md, TEAM_PIPELINE.md, and CONTRIBUTING.md
+completely.
 
 My role: Person [A/B/C]
 GitHub issue: #[number] — [title]
@@ -278,9 +279,12 @@ itself with the repository administrator as owner.
 - Twice-weekly integration review on staging using complete user journeys.
 - Weekly backlog and architecture review; no architecture decisions in private
   LLM chats only.
-- Weekly dependency update and production-readiness review once Wave 3 begins.
+- Weekly third-party dependency, security, and production-readiness review once
+  Wave 3 begins.
 
 The issue tracker is the source of truth for work status. This file is the
-source of truth for ownership and process. `PROJECT_CONTEXT.md` is the source of
-truth for implemented product behavior and history.
+source of truth for ownership and delivery order. `CONTRIBUTING.md` is the
+source of truth for repository-wide issue, branch, commit, and pull-request
+mechanics. `PROJECT_CONTEXT.md` is the source of truth for implemented product
+behavior and history.
 

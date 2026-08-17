@@ -9,14 +9,17 @@ Before planning or editing, read these files completely:
 
 1. `PROJECT_CONTEXT.md`
 2. `TEAM_PIPELINE.md`
-3. The GitHub issue or task supplied by the developer
+3. `CONTRIBUTING.md`
+4. The GitHub issue or task supplied by the developer
 
-If the task conflicts with either context file, stop and identify the conflict
-before editing.
+If the task conflicts with any required context file, stop and identify the
+conflict before editing.
 
 ## Scope and ownership
 
 - Work only on the supplied issue and within the stated allowed paths.
+- For significant work, require a linked GitHub issue with acceptance criteria;
+  trivial documentation and typo corrections are exempt.
 - Inspect current code; never assume another conversation's repository state.
 - Preserve unrelated work and do not reformat unrelated files.
 - Do not silently change shared models, state machines, service interfaces,
@@ -24,6 +27,7 @@ before editing.
 - Only one migration-bearing change should be in flight unless the human
   migration coordinator confirms otherwise.
 - Do not merge pull requests or push directly to `main`.
+- Use the issue-numbered branch conventions in `CONTRIBUTING.md`.
 
 ## Implementation standards
 
