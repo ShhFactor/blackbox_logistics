@@ -451,3 +451,19 @@ report template. Simulator behavior was not changed.
 - `rectangle_value.py` and its `main.py` integration (§5) have not been
   reviewed or tested by Claude — only the spec is documented there. Worth
   a review pass against the acceptance tests in §5 when convenient.
+
+
+---
+
+## Marketplace v2 — Django foundation
+
+A separate `marketplace-v2/` directory now contains the new Django 5.2 LTS
+application foundation. It is intentionally isolated from `marketplace_sim_v1/`;
+the v1 simulator has not been moved, rewritten, or modified.
+
+The v2 foundation currently provides environment-based Django settings,
+PostgreSQL configuration, Docker Compose services for the web application and
+PostgreSQL, a `/health/` endpoint, and initial project smoke tests. Domain apps,
+models, authentication roles, payments, and logistics are intentionally not
+implemented in this foundation step and remain owned by their scheduled
+pipeline issues.
