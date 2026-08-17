@@ -5,12 +5,15 @@ and builds the transaction records that other modules fill in further.
 
 import random
 
-from config import NUM_TRANSACTIONS, NUM_DRIVERS
+from .config import NUM_TRANSACTIONS, NUM_DRIVERS
 
 
-def pick_people(pool):
+def pick_people(pool, rng=None):
     """Select 6 unique buyer/seller names + 5 unique driver names (all disjoint)."""
-    chosen = random.sample(pool, 2 * NUM_TRANSACTIONS + NUM_DRIVERS)  # 6 + 5 = 11
+    random_source = rng if rng is not None else random
+    chosen = random_source.sample(
+        pool, 2 * NUM_TRANSACTIONS + NUM_DRIVERS
+    )  # 6 + 5 = 11
     buyer_seller_names = chosen[:2 * NUM_TRANSACTIONS]
     driver_names = chosen[2 * NUM_TRANSACTIONS:]
     return buyer_seller_names, driver_names

@@ -15,10 +15,14 @@ rather than re-deriving it from scratch.
 
 import random
 
-from config import NUM_TRANSACTIONS, DRIVERS_PER_TRANSACTION, MAX_VALUE_PER_DRIVER
+from .config import (
+    DRIVERS_PER_TRANSACTION,
+    MAX_VALUE_PER_DRIVER,
+    NUM_TRANSACTIONS,
+)
 
 
-def assign_drivers_to_transactions(driver_labels, max_attempts=10000):
+def assign_drivers_to_transactions(driver_labels, max_attempts=10000, rng=None):
     """
     For each transaction, randomly pick DRIVERS_PER_TRANSACTION distinct
     drivers (in random chain order) such that no driver's running total
@@ -26,6 +30,8 @@ def assign_drivers_to_transactions(driver_labels, max_attempts=10000):
     which is trivial for this problem size (5 drivers, capacity 2 each,
     9 total assignments needed out of 10 available "slots").
     """
+    random_source = rng if rng is not None else random
+
     for _ in range(max_attempts):
         remaining_capacity = {label: MAX_VALUE_PER_DRIVER for label in driver_labels}
         chains = []
@@ -37,8 +43,8 @@ def assign_drivers_to_transactions(driver_labels, max_attempts=10000):
                 ok = False
                 break
 
-            chosen = random.sample(available, DRIVERS_PER_TRANSACTION)
-            random.shuffle(chosen)  # random order within the delivery chain
+            chosen = random_source.sample(available, DRIVERS_PER_TRANSACTION)
+            random_source.shuffle(chosen)  # random order within the delivery chain
             for d in chosen:
                 remaining_capacity[d] -= 1
             chains.append(chosen)

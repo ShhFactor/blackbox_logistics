@@ -36,20 +36,18 @@ blackbox_logistics/
 │   ├── ISSUE_TEMPLATE/bug-report.md
 │   └── PULL_REQUEST_TEMPLATE.md
 ├── marketplace_sim_v1/
-│   ├── __init__.py         # public package API: SimulationResult, run_simulation
-│   ├── simulator.py        # computation-only orchestration for one full run
-│   ├── config.py           # shared constants
-│   ├── names.py            # the 100-name pool
-│   ├── people.py           # picks buyers/sellers/drivers, builds transaction records
-│   ├── addresses.py        # NEW: unique random address letter per person node
-│   ├── assignment.py       # capacity-constrained random driver assignment
-│   ├── priority.py         # position hashmap -> priority value -> priority linked list
-│   ├── tasks.py            # driver task hashmap (hand-off tuples, now with addresses)
-│   ├── rectangle_value.py  # random rectangle corner value assignment (see §5)
-│   ├── display.py          # all console-output formatting
-│   └── main.py             # compatibility-preserving console entry point
-├── marketplace-v2/
-│   └── ...                 # separate Django 5.2 LTS application foundation
+    ├── __init__.py         # public package API: SimulationResult, run_simulation
+    ├── simulator.py        # computation-only orchestration for one full run
+    ├── config.py           # shared constants
+    ├── names.py            # the 100-name pool
+    ├── people.py           # picks buyers/sellers/drivers, builds transaction records
+    ├── addresses.py        # NEW: unique random address letter per person node
+    ├── assignment.py       # capacity-constrained random driver assignment
+    ├── priority.py         # position hashmap -> priority value -> priority linked list
+    ├── tasks.py            # driver task hashmap (hand-off tuples, now with addresses)
+    ├── rectangle_value.py  # random rectangle corner value assignment (see §5)
+    ├── display.py          # all console-output formatting
+    └── main.py             # compatibility-preserving console entry point
 └── tests/
     └── test_simulator.py   # deterministic standard-library regression suite
 ```
@@ -77,8 +75,6 @@ modified as part of the v2 foundation work.
   risk disclosure, and review readiness.
 - C0.1 exposes the simulator through `marketplace_sim_v1.run_simulation()`;
   this structured API is the behavioral source for future application work.
-- The existing simulator remains the behavioral source for future
-  `simulation/` work until any planned extraction task is implemented.
 - `rectangle_value.py` and its `main.py` integration (§5) have not been
   reviewed or tested by Claude — only the spec is documented there. Worth
   a review pass against the acceptance tests in §5 when convenient.
@@ -340,14 +336,9 @@ cd marketplace_sim_v1
 python3 main.py
 ```
 
-Also works as:
-
-```bash
-python3 marketplace_sim_v1/main.py
-```
-
-The entry point adds the repository root to `sys.path` only when executed
-directly, so package imports remain side-effect-free.
+(Also works as `python3 marketplace_sim_v1/main.py` from the repo root. The
+entry point adds the repository root to `sys.path` only when executed directly,
+so package imports remain side-effect-free.)
 
 No install step, no dependencies beyond the Python standard library
 (including `random`, `math`, `dataclasses`, and `unittest`).
@@ -365,43 +356,6 @@ Run the deterministic regression suite from the repository root:
 ```bash
 python3 -m unittest discover -s tests -v
 ```
-
----
-
-## 10. Marketplace v2 — Django foundation
-
-A separate `marketplace-v2/` directory now contains the new **Django 5.2 LTS**
-application foundation.
-
-It is intentionally isolated from `marketplace_sim_v1/`; the v1 simulator
-has not been moved, rewritten, or modified as part of this foundation work.
-
-### Current v2 foundation
-
-The v2 foundation currently provides:
-
-- Environment-based Django settings.
-- PostgreSQL configuration.
-- Docker Compose services for the web application and PostgreSQL.
-- A `/health/` endpoint.
-- Initial project smoke tests.
-- A foundation suitable for subsequent domain/application work.
-
-### Current v2 boundaries
-
-The following are **intentionally not implemented yet** in the foundation:
-
-- Marketplace domain models.
-- Authentication roles.
-- Payments.
-- Logistics.
-- Other domain-specific application functionality.
-
-These remain owned by their scheduled pipeline issues and should not be
-implemented opportunistically as part of foundation work.
-
-The v2 foundation should remain isolated from the legacy simulator until an
-explicit migration/extraction task is scheduled.
 
 ---
 
@@ -516,7 +470,6 @@ single-file script, duplicate "How to run" commands) — see the note at
 the top of this Change Log section.
 
 **Update 11 — GitHub collaboration workflow implemented**
-
 Added `CONTRIBUTING.md` as the canonical issue-first collaboration workflow,
 including issue scope, issue-numbered branches, commit and pull-request rules,
 review readiness, structured labels, blocked-work handling, project statuses,
@@ -525,7 +478,6 @@ expanded the implementation issue and pull-request templates, and added a bug
 report template. Simulator behavior was not changed.
 
 **Update 12 — Importable simulator and deterministic regression suite**
-
 Added side-effect-free package exports in `__init__.py` and computation-only
 orchestration in `simulator.py`. The public `run_simulation(seed=None,
 rng=None)` entry point returns a structured `SimulationResult`; a seed creates
@@ -533,24 +485,10 @@ an isolated deterministic generator, while the no-argument path preserves the
 existing global-random CLI behavior. Added backward-compatible optional RNG
 injection to people selection, addresses, driver assignment, and the existing
 rectangle helper. Converted internal imports to package-safe imports while
-keeping `python marketplace_sim_v1/main.py` working through a thin
-compatibility wrapper. Added 12 standard-library `unittest` regression tests
-for imports, determinism, core invariants, priority stability, driver tasks,
-CLI execution, and output-section order. Deadlock and rectangle semantics
-were not changed.
-
-**Update 13 — Marketplace v2 Django foundation added**
-
-Added a separate `marketplace-v2/` Django 5.2 LTS foundation.
-
-The v2 foundation is intentionally isolated from `marketplace_sim_v1/`.
-It provides environment-based settings, PostgreSQL configuration, Docker
-Compose services for the web application and PostgreSQL, a `/health/`
-endpoint, and initial project smoke tests.
-
-Domain applications, models, authentication roles, payments, logistics,
-and other marketplace functionality remain intentionally unimplemented and
-are reserved for their scheduled pipeline issues.
+keeping `python marketplace_sim_v1/main.py` working through a thin compatibility
+wrapper. Added 12 standard-library `unittest` regression tests for imports,
+determinism, core invariants, priority stability, driver tasks, CLI execution,
+and output-section order. Deadlock and rectangle semantics were not changed.
 
 ---
 
@@ -560,7 +498,8 @@ are reserved for their scheduled pipeline issues.
 
 - Deadlock protection (§6) is currently **off**. Decide whether/when to
   re-add it, and whether it should be default-on or opt-in.
-- Automated CI enforcement remains a separate C0.2 task.
+- The local regression suite exists, but automated CI enforcement remains a
+  separate C0.2 task.
 - Consider whether buyer/seller pairs should also be checked for any
   structural constraints (currently unconstrained beyond uniqueness).
 - `rectangle_value.py` and its `main.py` integration (§5) have not been
