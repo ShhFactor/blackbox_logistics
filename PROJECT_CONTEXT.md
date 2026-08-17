@@ -18,7 +18,8 @@ how deliveries played out, builds each driver's task list (who they receive
 each product from, who they hand it on to, and now each party's address),
 and separately hosts an unrelated rectangle-corner-value utility.
 
-No third-party dependencies — only the standard library (`random`, `math`).
+No third-party dependencies — the project uses only the Python standard
+library.
 
 ---
 
@@ -34,7 +35,9 @@ blackbox_logistics/
 │   ├── ISSUE_TEMPLATE/implementation-task.md
 │   ├── ISSUE_TEMPLATE/bug-report.md
 │   └── PULL_REQUEST_TEMPLATE.md
-└── marketplace_sim_v1/
+├── marketplace_sim_v1/
+    ├── __init__.py         # public package API: SimulationResult, run_simulation
+    ├── simulator.py        # computation-only orchestration for one full run
     ├── config.py           # shared constants
     ├── names.py            # the 100-name pool
     ├── people.py           # picks buyers/sellers/drivers, builds transaction records
@@ -44,7 +47,9 @@ blackbox_logistics/
     ├── tasks.py            # driver task hashmap (hand-off tuples, now with addresses)
     ├── rectangle_value.py  # random rectangle corner value assignment (see §5)
     ├── display.py          # all console-output formatting
-    └── main.py             # entry point — run this
+    └── main.py             # compatibility-preserving console entry point
+└── tests/
+    └── test_simulator.py   # deterministic standard-library regression suite
 ```
 
 **As of Update 6, the project is no longer a single file.** It was
@@ -64,8 +69,8 @@ the module set above and should be deleted locally if it still exists.
 - `.github/ISSUE_TEMPLATE/bug-report.md` defines reproducible defect reports.
 - `.github/PULL_REQUEST_TEMPLATE.md` standardizes acceptance evidence, testing,
   risk disclosure, and review readiness.
-- The existing simulator remains the behavioral source for the future
-  `simulation/` module until the extraction task in Wave 0 is implemented.
+- C0.1 exposes the simulator through `marketplace_sim_v1.run_simulation()`;
+  this structured API is the behavioral source for future application work.
 - `rectangle_value.py` and its `main.py` integration (§5) have not been
   reviewed or tested by Claude — only the spec is documented there. Worth
   a review pass against the acceptance tests in §5 when convenient.
@@ -287,6 +292,8 @@ A **deadlock / circular-wait bug** was identified and is currently
 
 | File | Contents | Purpose |
 |---|---|---|
+| `__init__.py` | `SimulationResult`, `run_simulation` | Side-effect-free public package interface. |
+| `simulator.py` | `SimulationResult`, `run_simulation(seed=None, rng=None)` | Runs all computation without printing; supports deterministic seeds or explicit random-generator injection. |
 | `config.py` | `NUM_TRANSACTIONS`, `NUM_DRIVERS`, `DRIVERS_PER_TRANSACTION`, `MAX_VALUE_PER_DRIVER` | Single source of truth for shared constants. |
 | `names.py` | `NAME_POOL` | The 100 unique Indian names, asserted unique at import time. |
 | `people.py` | `pick_people(pool)`, `build_transactions(buyer_seller_names)` | Draws 11 unique names (6 buyer/seller + 5 drivers); builds the 3 transaction dicts with `B{i}`/`S{i}` labels and names. |
@@ -296,7 +303,8 @@ A **deadlock / circular-wait bug** was identified and is currently
 | `tasks.py` | `compute_driver_tasks(transactions, ordered_driver_labels, addresses)` | Builds the `{driver: [(str, str, str), ...]}` hand-off task hashmap per §4.11. **Updated in Update 10** to take `addresses` and emit 3-tuples instead of 2-tuples. |
 | `rectangle_value.py` | (implemented by collaborator, not by Claude) | Random rectangle corner value assignment — full spec in §5. |
 | `display.py` | `print_people_pool()`, `print_initial_hashmap()`, `print_transactions()`, `print_final_hashmap()`, `print_driver_positions()`, `print_priority_values()`, `print_priority_linked_list()`, `print_driver_tasks()` | All console-output formatting, kept separate from computation so either can be edited independently. `print_people_pool()` and the tuple formatter were updated in Update 10 for addresses. |
-| `main.py` | `main()` | Entry point — imports every module above and runs one full simulation. **Run this file.** |
+| `main.py` | `main()` | Thin console renderer over `run_simulation()`; preserves direct script execution. **Run this file.** |
+| `tests/test_simulator.py` | 12 `unittest` regression tests | Covers import safety, seeded determinism, people/address/assignment invariants, priority ordering, driver tasks, CLI execution, and output-section order. |
 
 ---
 
@@ -322,12 +330,26 @@ cd marketplace_sim_v1
 python3 main.py
 ```
 
-(Also works as `python3 marketplace_sim_v1/main.py` from the repo root —
-Python adds the script's own directory to `sys.path`, so the sibling
-imports between modules resolve either way.)
+(Also works as `python3 marketplace_sim_v1/main.py` from the repo root. The
+entry point adds the repository root to `sys.path` only when executed directly,
+so package imports remain side-effect-free.)
 
 No install step, no dependencies beyond the Python standard library
-(`random`, `math`).
+(including `random`, `math`, `dataclasses`, and `unittest`).
+
+The simulator can also be imported without producing console output:
+
+```python
+from marketplace_sim_v1 import run_simulation
+
+result = run_simulation(seed=2026)
+```
+
+Run the deterministic regression suite from the repository root:
+
+```bash
+python3 -m unittest discover -s tests -v
+```
 
 ---
 
@@ -438,14 +460,27 @@ and coding-agent behavior. Aligned `AGENTS.md` and `TEAM_PIPELINE.md` with it,
 expanded the implementation issue and pull-request templates, and added a bug
 report template. Simulator behavior was not changed.
 
+**Update 12 — Importable simulator and deterministic regression suite**
+Added side-effect-free package exports in `__init__.py` and computation-only
+orchestration in `simulator.py`. The public `run_simulation(seed=None,
+rng=None)` entry point returns a structured `SimulationResult`; a seed creates
+an isolated deterministic generator, while the no-argument path preserves the
+existing global-random CLI behavior. Added backward-compatible optional RNG
+injection to people selection, addresses, driver assignment, and the existing
+rectangle helper. Converted internal imports to package-safe imports while
+keeping `python marketplace_sim_v1/main.py` working through a thin compatibility
+wrapper. Added 12 standard-library `unittest` regression tests for imports,
+determinism, core invariants, priority stability, driver tasks, CLI execution,
+and output-section order. Deadlock and rectangle semantics were not changed.
+
 ---
 
 ## 11. Open items for future contributors
 
 - Deadlock protection (§6) is currently **off**. Decide whether/when to
   re-add it, and whether it should be default-on or opt-in.
-- No automated test suite yet — verification so far has been manual
-  (multiple runs + hand-worked example checks).
+- The local regression suite exists, but automated CI enforcement remains a
+  separate C0.2 task.
 - Consider whether buyer/seller pairs should also be checked for any
   structural constraints (currently unconstrained beyond uniqueness).
 - `rectangle_value.py` and its `main.py` integration (§5) have not been
