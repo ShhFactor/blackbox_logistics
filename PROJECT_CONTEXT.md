@@ -12,13 +12,11 @@ Last updated: 2026-08-17
 
 ## 1. What this project is
 
-A single-file Python script, `marketplace_sim_v1/marketplace_sim_v1.py`, that
-simulates a small marketplace with buyers, sellers, and delivery drivers, then derives a
-"priority" ordering of the drivers from how the deliveries played out.
 A small Python project that simulates a marketplace with buyers, sellers,
-and delivery drivers, derives a "priority" ordering of the drivers from how
-deliveries played out, and then builds each driver's task list (who they
-receive each product from, who they hand it on to).
+and delivery drivers. It derives a "priority" ordering of the drivers from
+how deliveries played out, builds each driver's task list (who they receive
+each product from, who they hand it on to, and now each party's address),
+and separately hosts an unrelated rectangle-corner-value utility.
 
 No third-party dependencies — only the standard library (`random`, `math`).
 
@@ -29,26 +27,47 @@ No third-party dependencies — only the standard library (`random`, `math`).
 ```
 blackbox_logistics/
 ├── PROJECT_CONTEXT.md
+├── AGENTS.md
+├── TEAM_PIPELINE.md
+├── .github/
+│   ├── ISSUE_TEMPLATE/implementation-task.md
+│   └── PULL_REQUEST_TEMPLATE.md
 └── marketplace_sim_v1/
     ├── config.py           # shared constants
     ├── names.py            # the 100-name pool
     ├── people.py           # picks buyers/sellers/drivers, builds transaction records
+    ├── addresses.py        # NEW: unique random address letter per person node
     ├── assignment.py       # capacity-constrained random driver assignment
     ├── priority.py         # position hashmap -> priority value -> priority linked list
-    ├── tasks.py            # driver task hashmap (hand-off tuples)
-    ├── rectangle_value.py  # NEW: random rectangle corner value assignment (see §4)
+    ├── tasks.py            # driver task hashmap (hand-off tuples, now with addresses)
+    ├── rectangle_value.py  # random rectangle corner value assignment (see §5)
     ├── display.py          # all console-output formatting
     └── main.py             # entry point — run this
 ```
 
-**As of Update 5, the project is no longer a single file.** It was
-previously one script (`marketplace_sim_v1.py`); that file has been
-replaced by the module set above and should be deleted locally if it still
-exists. See Update 5 in the Change Log.
+**As of Update 6, the project is no longer a single file.** It was
+previously one script (`marketplace_sim_v1.py`); that file was replaced by
+the module set above and should be deleted locally if it still exists.
 
 ---
 
-## 3. Current spec
+## 3. Team delivery workflow
+
+- `TEAM_PIPELINE.md` is the source of truth for the three-person work split,
+  delivery order, review routing, and merge gates.
+- `AGENTS.md` contains mandatory instructions for every LLM coding instance.
+- `.github/ISSUE_TEMPLATE/implementation-task.md` defines bounded work items.
+- `.github/PULL_REQUEST_TEMPLATE.md` standardizes acceptance evidence, testing,
+  risk disclosure, and review readiness.
+- The existing simulator remains the behavioral source for the future
+  `simulation/` module until the extraction task in Wave 0 is implemented.
+- `rectangle_value.py` and its `main.py` integration (§5) have not been
+  reviewed or tested by Claude — only the spec is documented there. Worth
+  a review pass against the acceptance tests in §5 when convenient.
+
+---
+
+## 4. Current spec
 
 1. **Name pool**: `NAME_POOL` (`names.py`) — exactly 100 unique Indian
    names, hardcoded.
@@ -82,7 +101,14 @@ exists. See Update 5 in the Change Log.
    Python list) of the 5 drivers, sorted **ascending** by that float value.
    Ties are broken by keeping the original `D1..D5` relative order (achieved
    via a stable sort — no special-case tie-breaking code needed).
-10. **Driver Tasks hashmap** (NEW, Update 6) — `{driver: [(str, str), ...]}`:
+10. **Node addresses** (NEW, Update 10) — `{node_label: letter}`:
+    - Every one of the 11 people-pool nodes (`B1, S1, B2, S2, B3, S3, D1..D5`)
+      gets a unique random letter from the fixed 11-letter set
+      `{a, b, c, d, e, f, g, h, i, j, k}` — a random bijection (built by
+      shuffling the letter set and zipping it against the 11 labels).
+    - Printed alongside each name in the People Pool section, e.g.
+      `B1: Gaurav - g`.
+11. **Driver Tasks hashmap** — `{driver: [(str, str, str), ...]}`:
     - **Key order** matches the traversal order of the driver priority
       linked list from item 9 (lowest priority value first).
     - For each driver, in each transaction it appears in, it has a
@@ -90,21 +116,24 @@ exists. See Update 5 in the Change Log.
       (the node it hands the product on to). Transaction `i`'s product is
       always labeled `Pi`.
     - **Incoming entries come first**, one per transaction the driver
-      appears in (scanned in transaction order 1→3):
-      `(product, predecessor_label)` — e.g. `('P1', 'S1')`.
-    - **Outgoing entries come second**, same transaction scan order:
-      `(successor_label, product)` — e.g. `('D1', 'P1')`.
-    - This rule was reverse-engineered from the user's worked example and
-      matched **17 of 18** tuples exactly; the 18th (`D5`'s last entry) was
-      given as `('P2', 'D2')` but the consistent rule (matching everywhere
-      else) produces `('D2', 'P2')`. **Confirmed by the user to be a typo
-      in their original prompt** — the implemented rule (`compute_driver_tasks`
-      in `tasks.py`, producing `('D2', 'P2')`) is correct as-is, no code
-      change needed.
+      appears in (scanned in transaction order 1→3).
+    - **Outgoing entries come second**, same transaction scan order.
+    - As of Update 10, every tuple has a **third element**: an address
+      letter, per one of three rules (`Dy` below means the driver whose
+      task list this is — i.e. the dict key — as distinct from `Dx`, some
+      *other* driver named inside a specific tuple):
+      - **(i) Incoming** `(Px, Sx|Dx, address)` — address of the
+        predecessor `Sx`/`Dx` (whoever is sending the product).
+      - **(ii) Outgoing to another driver** `(Dx, Px, address)` — address
+        of `Dy` itself (the key driver — it's the one sending here).
+      - **(iii) Outgoing to a buyer** `(Bx, Px, address)` — address of
+        that buyer `Bx`.
+    - These three rules were verified against a full worked example (18
+      tuples across 5 drivers) — every single tuple matched.
 
 ---
 
-## 4. Random Rectangle Corner Assignment — Implementation Context
+## 5. Random Rectangle Corner Assignment — Implementation Context
 
 > **Note:** this feature was implemented directly by a collaborator, in
 > `rectangle_value.py`, with `main.py` updated to use it. Claude did not
@@ -221,7 +250,7 @@ produce the same result. Tests should not expect a particular unseeded order.
 
 ---
 
-## 5. Explicitly NOT in the current version (rolled back)
+## 6. Explicitly NOT in the current version (rolled back)
 
 A **deadlock / circular-wait bug** was identified and is currently
 **unresolved by design** (per explicit user instruction to roll back):
@@ -249,53 +278,41 @@ A **deadlock / circular-wait bug** was identified and is currently
 
 ---
 
-## 4. Key functions in `marketplace_sim_v1/marketplace_sim_v1.py`
-
-| Function / Class | Purpose |
-|---|---|
-| `NAME_POOL` | The 100 unique Indian names, asserted unique at load time. |
-| `pick_people(pool)` | Draws 11 unique names in one `random.sample` call: 6 for buyer/seller pairs + 5 for drivers. |
-| `build_transactions(buyer_seller_names)` | Builds the 3 transaction dicts with `B{i}`/`S{i}` labels and names. |
-| `assign_drivers_to_transactions(driver_labels)` | Retry-based random search: for each transaction, samples 3 drivers with remaining capacity > 0, shuffles their order, decrements capacity. Retries the whole draw if it paints itself into a corner. **No deadlock protection** (see §3). |
-| `DriverNode` | A node in the singly linked priority list (`label`, `xy`, `value`, `next`). |
-| `DriverPriorityLinkedList` | Minimal singly linked list with `append()` and iteration. |
-| `compute_driver_positions(transactions, driver_labels)` | Builds the `{driver: (x, y)}` hashmap per §2.7. |
-| `compute_priority_values(driver_xy)` | `{driver: sqrt(x^2 + y^2)}`. |
-| `build_priority_linked_list(driver_labels, driver_xy, driver_values)` | Builds the final sorted linked list (stable sort → ties preserve `D1..D5` order). |
-| `main()` | Orchestrates everything and prints all output sections below. |
-## 6. Module reference
+## 7. Module reference
 
 | File | Contents | Purpose |
 |---|---|---|
 | `config.py` | `NUM_TRANSACTIONS`, `NUM_DRIVERS`, `DRIVERS_PER_TRANSACTION`, `MAX_VALUE_PER_DRIVER` | Single source of truth for shared constants. |
 | `names.py` | `NAME_POOL` | The 100 unique Indian names, asserted unique at import time. |
 | `people.py` | `pick_people(pool)`, `build_transactions(buyer_seller_names)` | Draws 11 unique names (6 buyer/seller + 5 drivers); builds the 3 transaction dicts with `B{i}`/`S{i}` labels and names. |
-| `assignment.py` | `assign_drivers_to_transactions(driver_labels)` | Retry-based random search: for each transaction, samples 3 drivers with remaining capacity > 0, shuffles their order, decrements capacity. **No deadlock protection** (see §5). |
+| `addresses.py` | `assign_addresses(node_labels)` | **NEW.** Shuffles the fixed 11-letter set `{a..k}` and zips it against the 11 node labels, returning `{label: letter}`. Raises if given anything other than exactly 11 labels. |
+| `assignment.py` | `assign_drivers_to_transactions(driver_labels)` | Retry-based random search: for each transaction, samples 3 drivers with remaining capacity > 0, shuffles their order, decrements capacity. **No deadlock protection** (see §6). |
 | `priority.py` | `DriverNode`, `DriverPriorityLinkedList`, `compute_driver_positions()`, `compute_priority_values()`, `build_priority_linked_list()` | Builds the `{driver: (x, y)}` hashmap, converts to `sqrt(x^2+y^2)`, builds the ascending singly linked list. |
-| `tasks.py` | `compute_driver_tasks(transactions, ordered_driver_labels)` | **NEW.** Builds the `{driver: [(str, str), ...]}` hand-off task hashmap per §3.10. |
-| `rectangle_value.py` | (implemented by collaborator, not by Claude) | Random rectangle corner value assignment — full spec in §4. |
-| `display.py` | `print_people_pool()`, `print_initial_hashmap()`, `print_transactions()`, `print_final_hashmap()`, `print_driver_positions()`, `print_priority_values()`, `print_priority_linked_list()`, `print_driver_tasks()` | All console-output formatting, kept separate from computation so either can be edited independently. |
+| `tasks.py` | `compute_driver_tasks(transactions, ordered_driver_labels, addresses)` | Builds the `{driver: [(str, str, str), ...]}` hand-off task hashmap per §4.11. **Updated in Update 10** to take `addresses` and emit 3-tuples instead of 2-tuples. |
+| `rectangle_value.py` | (implemented by collaborator, not by Claude) | Random rectangle corner value assignment — full spec in §5. |
+| `display.py` | `print_people_pool()`, `print_initial_hashmap()`, `print_transactions()`, `print_final_hashmap()`, `print_driver_positions()`, `print_priority_values()`, `print_priority_linked_list()`, `print_driver_tasks()` | All console-output formatting, kept separate from computation so either can be edited independently. `print_people_pool()` and the tuple formatter were updated in Update 10 for addresses. |
 | `main.py` | `main()` | Entry point — imports every module above and runs one full simulation. **Run this file.** |
 
 ---
 
-## 7. Output sections, in order
+## 8. Output sections, in order
 
-1. People Pool Selected (buyers, sellers, drivers with real names)
-2. Initial Hashmap (`{D1: 0, ..., D5: 0}`)
-3. Transactions (`S_i(name) -> D(name) -> D(name) -> D(name) -> B_i(name)`)
-4. Final Hashmap (delivery counts, each ≤ 2)
-5. Driver Position Hashmap (`{driver: (x, y)}`)
-6. Driver Priority Values (`sqrt(x^2 + y^2)` per driver, printed in `D1..D5` order)
-7. Driver Priority Linked List (ascending, printed via traversal)
-8. Driver Tasks (NEW — printed in priority-linked-list order, e.g. `D4 -> [(P1, S1), (P3, S3), (D1, P1), (D3, P3)]`)
+1. Rectangle "Map Output" (unrelated feature, printed first — see §5)
+2. People Pool Selected (buyers, sellers, drivers with real names **and address letters**, e.g. `B1: Gaurav - g`)
+3. Initial Hashmap (`{D1: 0, ..., D5: 0}`)
+4. Transactions (`S_i(name) -> D(name) -> D(name) -> D(name) -> B_i(name)`)
+5. Final Hashmap (delivery counts, each ≤ 2)
+6. Driver Position Hashmap (`{driver: (x, y)}`)
+7. Driver Priority Values (`sqrt(x^2 + y^2)` per driver, printed in `D1..D5` order)
+8. Driver Priority Linked List (ascending, printed via traversal)
+9. Driver Tasks (printed in priority-linked-list order, 3-tuples including
+   address, e.g. `D4 -> [(P1, S1, i), (P3, S3, j), (D1, P1, f), (D3, P3, f)]`)
 
 ---
 
-## 8. How to run
+## 9. How to run
 
 ```bash
-python3 marketplace_sim_v1/marketplace_sim_v1.py
 cd marketplace_sim_v1
 python3 main.py
 ```
@@ -309,7 +326,14 @@ No install step, no dependencies beyond the Python standard library
 
 ---
 
-## 9. Change Log
+## 10. Change Log
+
+> Note: this file had accumulated some duplicate section numbers and
+> duplicate/garbled paragraphs (two "Update 5" entries, two "§4" headers,
+> a stale description of a since-deleted single-file script) from earlier
+> hand-edits. Update 10 below cleaned up structure and numbering only —
+> no historical entry's content was deleted, only renumbered/deduplicated
+> for readability.
 
 **Update 1 — Initial build**
 Built the core simulator: 100-name pool, 3 buyer/seller pairs, 5 drivers,
@@ -322,7 +346,7 @@ waiting on each other's product across two transactions). Implemented a
 fix: fixed global driver priority ranking + `is_acyclic()` Kahn's-algorithm
 verification. Verified working across 8 runs. **User then asked to roll
 this back entirely** before proceeding with Update 3 — the deadlock fix is
-NOT in the current code. See §5 for details on what the fix was, in case
+NOT in the current code. See §6 for details on what the fix was, in case
 it needs to be reintroduced later.
 
 **Update 3 — Driver position hashmap + priority linked list**
@@ -340,13 +364,13 @@ context on the spec, current implementation, and history without needing
 the original conversation.
 
 **Update 5 — Three-person development pipeline added**
-Added `TEAM_PIPELINE.md` with role ownership, dependency-ordered delivery waves,
-LLM prompt and handoff rules, PR routing, merge gates, and repository settings.
-Added root `AGENTS.md` so separate coding instances follow the same context and
-safety rules, plus GitHub implementation-issue and pull-request templates.
-Corrected this file's script path to the actual nested file location. Simulator
-behavior was not changed.
-**Update 5 — Split into a multi-file project**
+Added `TEAM_PIPELINE.md` with role ownership, dependency-ordered delivery
+waves, LLM prompt and handoff rules, PR routing, merge gates, and
+repository settings. Added root `AGENTS.md` so separate coding instances
+follow the same context and safety rules, plus GitHub implementation-issue
+and pull-request templates. Simulator behavior was not changed.
+
+**Update 6 — Split into a multi-file project**
 The single `marketplace_sim_v1.py` script was broken up into
 `config.py`, `names.py`, `people.py`, `assignment.py`, `priority.py`,
 `display.py`, and a `main.py` entry point, all inside `marketplace_sim_v1/`
@@ -354,54 +378,63 @@ The single `marketplace_sim_v1.py` script was broken up into
 step — pure reorganization for readability, verified by re-running the
 program multiple times after the split.
 
-**Update 6 — Driver Tasks feature added**
+**Update 7 — Driver Tasks feature added**
 Added `tasks.py` with `compute_driver_tasks()`, producing the
-`{driver: [(str, str), ...]}` hashmap described in §3.10, in driver
+`{driver: [(str, str), ...]}` hashmap described in §4.11, in driver
 priority order. Verified against the user's worked example: matched 4 of
-5 drivers exactly and 3 of 4 entries on the 5th (see §3.10 for the one
+5 drivers exactly and 3 of 4 entries on the 5th (see Update 8 for the one
 flagged discrepancy, believed to be a typo in the example). `display.py`
 got a new `print_driver_tasks()` function to render it without quote
 marks, matching the requested output format.
 
-**Update 7 — D5 tuple-order discrepancy confirmed as a prompt typo**
-User confirmed the flagged `D5` entry from Update 6 (`('P2', 'D2')` vs.
-the rule's `('D2', 'P2')`) was a typo in their original prompt, not an
+**Update 8 — D5 tuple-order discrepancy confirmed as a prompt typo**
+User confirmed a flagged `D5` entry from Update 7 (`('P2', 'D2')` vs. the
+rule's `('D2', 'P2')`) was a typo in their original prompt, not an
 exception to the rule. No code changes required — `tasks.py` was already
-correct. §3.10 and the open items list updated to close this out.
+correct.
 
-**Update 8 — Random Rectangle Corner Assignment spec added (docs only)**
+**Update 9 — Random Rectangle Corner Assignment spec added (docs only)**
 User implemented a new, separate feature directly (`rectangle_value.py`,
 plus an update to `main.py`) without Claude's involvement in the code.
-Per explicit request, **only this file was touched**: the collaborator's
-full spec was added verbatim as new §4, `rectangle_value.py` was added
-to the repo layout diagram and the module reference table, and later
-section numbers were bumped accordingly. Claude has not seen, written,
-or verified `rectangle_value.py` or the `main.py` changes — this entry
-and §4 describe the *intended* spec only, not verified behavior.
+Per explicit request, only this file was touched that session: the
+collaborator's full spec was added verbatim (now §5), and
+`rectangle_value.py` was added to the repo layout diagram and module
+reference table. Claude has not written or verified `rectangle_value.py`
+or its `main.py` integration — §5 describes the *intended* spec only.
+
+**Update 10 — Node addresses added to People Pool and Driver Tasks**
+Added `addresses.py` (`assign_addresses()`), giving every one of the 11
+people-pool nodes a unique random letter from `{a..k}`. Wired into
+`main.py` right after buyer/seller/driver labels are known. Updated:
+- `display.py`'s `print_people_pool()` to print `Name - letter` for every
+  node, and its tuple formatter to render 3-tuples instead of 2-tuples.
+- `tasks.py`'s `compute_driver_tasks()` to take an `addresses` dict and
+  return 3-tuples per the three address rules in §4.11 (incoming = sender's
+  address; outgoing-to-driver = the key driver's own address;
+  outgoing-to-buyer = that buyer's address).
+
+Verified two ways: (1) reconstructed the user's exact worked example
+(hardcoded transactions + addresses) and reproduced their expected
+`Driver Tasks (UPDATED)` output tuple-for-tuple, exact match; (2) ran the
+full program end-to-end multiple times with fresh random data and manually
+traced every tuple in one full run against the three rules — all correct.
+
+This update also cleaned up structural issues in this file that had
+accumulated from earlier hand-edits (duplicate "Update 5" entries,
+duplicate "§4"/"§9" headers, a stale description of the deleted
+single-file script, duplicate "How to run" commands) — see the note at
+the top of this Change Log section.
 
 ---
 
-## 10. Open items for future contributors
+## 11. Open items for future contributors
 
-- Deadlock protection (§5) is currently **off**. Decide whether/when to
+- Deadlock protection (§6) is currently **off**. Decide whether/when to
   re-add it, and whether it should be default-on or opt-in.
 - No automated test suite yet — verification so far has been manual
   (multiple runs + hand-worked example checks).
 - Consider whether buyer/seller pairs should also be checked for any
   structural constraints (currently unconstrained beyond uniqueness).
-
----
-
-## 9. Team delivery workflow
-
-- `TEAM_PIPELINE.md` is the source of truth for the three-person work split,
-  delivery order, review routing, and merge gates.
-- `AGENTS.md` contains mandatory instructions for every LLM coding instance.
-- `.github/ISSUE_TEMPLATE/implementation-task.md` defines bounded work items.
-- `.github/PULL_REQUEST_TEMPLATE.md` standardizes acceptance evidence, testing,
-  risk disclosure, and review readiness.
-- The existing simulator remains the behavioral source for the future
-  `simulation/` module until the extraction task in Wave 0 is implemented.
-- `rectangle_value.py` and its `main.py` integration (§4) have not been
-  reviewed or tested by Claude — only the spec is documented here. Worth
-  a review pass against the acceptance tests in §4 when convenient.
+- `rectangle_value.py` and its `main.py` integration (§5) have not been
+  reviewed or tested by Claude — only the spec is documented there. Worth
+  a review pass against the acceptance tests in §5 when convenient.
