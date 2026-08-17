@@ -10,7 +10,7 @@ import random
 ADDRESS_LETTERS = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k"]
 
 
-def assign_addresses(node_labels):
+def assign_addresses(node_labels, rng=None):
     """
     Shuffle ADDRESS_LETTERS and zip it with node_labels, giving back
     {label: letter} with every letter from the set used exactly once.
@@ -25,5 +25,8 @@ def assign_addresses(node_labels):
             f"got {len(node_labels)}"
         )
 
-    shuffled_letters = random.sample(ADDRESS_LETTERS, len(ADDRESS_LETTERS))
+    random_source = rng if rng is not None else random
+    shuffled_letters = random_source.sample(
+        ADDRESS_LETTERS, len(ADDRESS_LETTERS)
+    )
     return dict(zip(node_labels, shuffled_letters))
