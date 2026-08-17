@@ -6,7 +6,7 @@
 > without re-reading old conversations. Append to the Change Log, don't delete
 > old entries.
 
-Last updated: 2026-08-17
+Last updated: 2026-08-18
 
 ---
 
@@ -18,36 +18,49 @@ how deliveries played out, builds each driver's task list (who they receive
 each product from, who they hand it on to, and now each party's address),
 and separately hosts an unrelated rectangle-corner-value utility.
 
-No third-party dependencies — only the standard library (`random`, `math`).
+No third-party dependencies — the project uses only the Python standard
+library.
 
 ---
 
 ## 2. Repo layout
 
-```
+```text
 blackbox_logistics/
 ├── PROJECT_CONTEXT.md
 ├── AGENTS.md
 ├── TEAM_PIPELINE.md
+├── CONTRIBUTING.md
 ├── .github/
 │   ├── ISSUE_TEMPLATE/implementation-task.md
+│   ├── ISSUE_TEMPLATE/bug-report.md
 │   └── PULL_REQUEST_TEMPLATE.md
-└── marketplace_sim_v1/
-    ├── config.py           # shared constants
-    ├── names.py            # the 100-name pool
-    ├── people.py           # picks buyers/sellers/drivers, builds transaction records
-    ├── addresses.py        # NEW: unique random address letter per person node
-    ├── assignment.py       # capacity-constrained random driver assignment
-    ├── priority.py         # position hashmap -> priority value -> priority linked list
-    ├── tasks.py            # driver task hashmap (hand-off tuples, now with addresses)
-    ├── rectangle_value.py  # random rectangle corner value assignment (see §5)
-    ├── display.py          # all console-output formatting
-    └── main.py             # entry point — run this
+├── marketplace_sim_v1/
+│   ├── __init__.py         # public package API: SimulationResult, run_simulation
+│   ├── simulator.py        # computation-only orchestration for one full run
+│   ├── config.py           # shared constants
+│   ├── names.py            # the 100-name pool
+│   ├── people.py           # picks buyers/sellers/drivers, builds transaction records
+│   ├── addresses.py        # NEW: unique random address letter per person node
+│   ├── assignment.py       # capacity-constrained random driver assignment
+│   ├── priority.py         # position hashmap -> priority value -> priority linked list
+│   ├── tasks.py            # driver task hashmap (hand-off tuples, now with addresses)
+│   ├── rectangle_value.py  # random rectangle corner value assignment (see §5)
+│   ├── display.py          # all console-output formatting
+│   └── main.py             # compatibility-preserving console entry point
+├── marketplace-v2/
+│   └── ...                 # separate Django 5.2 LTS application foundation
+└── tests/
+    └── test_simulator.py   # deterministic standard-library regression suite
 ```
 
 **As of Update 6, the project is no longer a single file.** It was
 previously one script (`marketplace_sim_v1.py`); that file was replaced by
 the module set above and should be deleted locally if it still exists.
+
+The `marketplace-v2/` application is intentionally separate from
+`marketplace_sim_v1/`. The v1 simulator has not been moved, rewritten, or
+modified as part of the v2 foundation work.
 
 ---
 
@@ -55,12 +68,17 @@ the module set above and should be deleted locally if it still exists.
 
 - `TEAM_PIPELINE.md` is the source of truth for the three-person work split,
   delivery order, review routing, and merge gates.
+- `CONTRIBUTING.md` is the source of truth for issue, branch, commit, and
+  pull-request mechanics used by all contributors.
 - `AGENTS.md` contains mandatory instructions for every LLM coding instance.
 - `.github/ISSUE_TEMPLATE/implementation-task.md` defines bounded work items.
+- `.github/ISSUE_TEMPLATE/bug-report.md` defines reproducible defect reports.
 - `.github/PULL_REQUEST_TEMPLATE.md` standardizes acceptance evidence, testing,
   risk disclosure, and review readiness.
-- The existing simulator remains the behavioral source for the future
-  `simulation/` module until the extraction task in Wave 0 is implemented.
+- C0.1 exposes the simulator through `marketplace_sim_v1.run_simulation()`;
+  this structured API is the behavioral source for future application work.
+- The existing simulator remains the behavioral source for future
+  `simulation/` work until any planned extraction task is implemented.
 - `rectangle_value.py` and its `main.py` integration (§5) have not been
   reviewed or tested by Claude — only the spec is documented there. Worth
   a review pass against the acceptance tests in §5 when convenient.
@@ -156,7 +174,7 @@ value or a corner.
 Represent the four corners as dictionary/map keys:
 
 | Key | Corner | Coordinate |
-| --- | --- | --- |
+|---|---|---|
 | `a` | bottom-left | `(min_x, min_y)` |
 | `b` | top-left | `(min_x, max_y)` |
 | `c` | top-right | `(max_x, max_y)` |
@@ -261,13 +279,13 @@ A **deadlock / circular-wait bug** was identified and is currently
   opposite-direction hand-offs between the same pair of drivers — e.g.
   `D3 -> D5` in one chain and `D5 -> D3` in another. If the simulation is
   ever extended to model synchronous hand-offs (a driver must physically
-  meet the next driver to pass the parcel), this is a genuine
-  circular-wait deadlock.
+  meet the next driver to pass the parcel), this is a genuine circular-wait
+  deadlock.
 - A fix was designed and fully implemented: assign each driver a single
-  fixed random priority rank once per run, and always sort each
-  transaction's chosen drivers into that same rank order — guaranteeing
-  the combined hand-off graph is a DAG (classic fixed-resource-ordering
-  deadlock prevention, same idea as consistent lock ordering). An
+  fixed random priority rank once per run, and always sort each transaction's
+  chosen drivers into that same rank order — guaranteeing the combined
+  hand-off graph is a DAG (classic fixed-resource-ordering deadlock
+  prevention, same idea as consistent lock ordering). An
   `is_acyclic()` Kahn's-algorithm check was added as a verifying
   assertion.
 - **This fix was rolled back at the user's request.** The current code in
@@ -282,6 +300,8 @@ A **deadlock / circular-wait bug** was identified and is currently
 
 | File | Contents | Purpose |
 |---|---|---|
+| `__init__.py` | `SimulationResult`, `run_simulation` | Side-effect-free public package interface. |
+| `simulator.py` | `SimulationResult`, `run_simulation(seed=None, rng=None)` | Runs all computation without printing; supports deterministic seeds or explicit random-generator injection. |
 | `config.py` | `NUM_TRANSACTIONS`, `NUM_DRIVERS`, `DRIVERS_PER_TRANSACTION`, `MAX_VALUE_PER_DRIVER` | Single source of truth for shared constants. |
 | `names.py` | `NAME_POOL` | The 100 unique Indian names, asserted unique at import time. |
 | `people.py` | `pick_people(pool)`, `build_transactions(buyer_seller_names)` | Draws 11 unique names (6 buyer/seller + 5 drivers); builds the 3 transaction dicts with `B{i}`/`S{i}` labels and names. |
@@ -291,7 +311,8 @@ A **deadlock / circular-wait bug** was identified and is currently
 | `tasks.py` | `compute_driver_tasks(transactions, ordered_driver_labels, addresses)` | Builds the `{driver: [(str, str, str), ...]}` hand-off task hashmap per §4.11. **Updated in Update 10** to take `addresses` and emit 3-tuples instead of 2-tuples. |
 | `rectangle_value.py` | (implemented by collaborator, not by Claude) | Random rectangle corner value assignment — full spec in §5. |
 | `display.py` | `print_people_pool()`, `print_initial_hashmap()`, `print_transactions()`, `print_final_hashmap()`, `print_driver_positions()`, `print_priority_values()`, `print_priority_linked_list()`, `print_driver_tasks()` | All console-output formatting, kept separate from computation so either can be edited independently. `print_people_pool()` and the tuple formatter were updated in Update 10 for addresses. |
-| `main.py` | `main()` | Entry point — imports every module above and runs one full simulation. **Run this file.** |
+| `main.py` | `main()` | Thin console renderer over `run_simulation()`; preserves direct script execution. **Run this file.** |
+| `tests/test_simulator.py` | 12 `unittest` regression tests | Covers import safety, seeded determinism, people/address/assignment invariants, priority ordering, driver tasks, CLI execution, and output-section order. |
 
 ---
 
@@ -312,21 +333,79 @@ A **deadlock / circular-wait bug** was identified and is currently
 
 ## 9. How to run
 
+From the repository root:
+
 ```bash
 cd marketplace_sim_v1
 python3 main.py
 ```
 
-(Also works as `python3 marketplace_sim_v1/main.py` from the repo root —
-Python adds the script's own directory to `sys.path`, so the sibling
-imports between modules resolve either way.)
+Also works as:
+
+```bash
+python3 marketplace_sim_v1/main.py
+```
+
+The entry point adds the repository root to `sys.path` only when executed
+directly, so package imports remain side-effect-free.
 
 No install step, no dependencies beyond the Python standard library
-(`random`, `math`).
+(including `random`, `math`, `dataclasses`, and `unittest`).
+
+The simulator can also be imported without producing console output:
+
+```python
+from marketplace_sim_v1 import run_simulation
+
+result = run_simulation(seed=2026)
+```
+
+Run the deterministic regression suite from the repository root:
+
+```bash
+python3 -m unittest discover -s tests -v
+```
 
 ---
 
-## 10. Change Log
+## 10. Marketplace v2 — Django foundation
+
+A separate `marketplace-v2/` directory now contains the new **Django 5.2 LTS**
+application foundation.
+
+It is intentionally isolated from `marketplace_sim_v1/`; the v1 simulator
+has not been moved, rewritten, or modified as part of this foundation work.
+
+### Current v2 foundation
+
+The v2 foundation currently provides:
+
+- Environment-based Django settings.
+- PostgreSQL configuration.
+- Docker Compose services for the web application and PostgreSQL.
+- A `/health/` endpoint.
+- Initial project smoke tests.
+- A foundation suitable for subsequent domain/application work.
+
+### Current v2 boundaries
+
+The following are **intentionally not implemented yet** in the foundation:
+
+- Marketplace domain models.
+- Authentication roles.
+- Payments.
+- Logistics.
+- Other domain-specific application functionality.
+
+These remain owned by their scheduled pipeline issues and should not be
+implemented opportunistically as part of foundation work.
+
+The v2 foundation should remain isolated from the legacy simulator until an
+explicit migration/extraction task is scheduled.
+
+---
+
+## 11. Change Log
 
 > Note: this file had accumulated some duplicate section numbers and
 > duplicate/garbled paragraphs (two "Update 5" entries, two "§4" headers,
@@ -336,11 +415,13 @@ No install step, no dependencies beyond the Python standard library
 > for readability.
 
 **Update 1 — Initial build**
+
 Built the core simulator: 100-name pool, 3 buyer/seller pairs, 5 drivers,
 capacity-constrained random driver assignment (max 2 deliveries/driver),
 transaction chain printing. Verified across multiple runs.
 
 **Update 2 — Deadlock identified, fix built, then rolled back**
+
 User spotted a real circular-wait deadlock in sample output (D3 and D5
 waiting on each other's product across two transactions). Implemented a
 fix: fixed global driver priority ranking + `is_acyclic()` Kahn's-algorithm
@@ -350,6 +431,7 @@ NOT in the current code. See §6 for details on what the fix was, in case
 it needs to be reintroduced later.
 
 **Update 3 — Driver position hashmap + priority linked list**
+
 Added, on top of the rolled-back (original) script: `{driver: (x, y)}`
 position hashmap parsed from the transaction chains, `sqrt(x^2+y^2)`
 priority value per driver, and a real singly linked list
@@ -359,11 +441,13 @@ against the user's own worked example (`D3 -> (1,2)`, `D1 -> (1,0)`,
 final list `D1 -> D3 -> D5 -> D2 -> D4`) — matched exactly.
 
 **Update 4 — PROJECT_CONTEXT.md created**
+
 This file was created to give any collaborator or new chat instance full
 context on the spec, current implementation, and history without needing
 the original conversation.
 
 **Update 5 — Three-person development pipeline added**
+
 Added `TEAM_PIPELINE.md` with role ownership, dependency-ordered delivery
 waves, LLM prompt and handoff rules, PR routing, merge gates, and
 repository settings. Added root `AGENTS.md` so separate coding instances
@@ -371,6 +455,7 @@ follow the same context and safety rules, plus GitHub implementation-issue
 and pull-request templates. Simulator behavior was not changed.
 
 **Update 6 — Split into a multi-file project**
+
 The single `marketplace_sim_v1.py` script was broken up into
 `config.py`, `names.py`, `people.py`, `assignment.py`, `priority.py`,
 `display.py`, and a `main.py` entry point, all inside `marketplace_sim_v1/`
@@ -379,6 +464,7 @@ step — pure reorganization for readability, verified by re-running the
 program multiple times after the split.
 
 **Update 7 — Driver Tasks feature added**
+
 Added `tasks.py` with `compute_driver_tasks()`, producing the
 `{driver: [(str, str), ...]}` hashmap described in §4.11, in driver
 priority order. Verified against the user's worked example: matched 4 of
@@ -388,12 +474,14 @@ got a new `print_driver_tasks()` function to render it without quote
 marks, matching the requested output format.
 
 **Update 8 — D5 tuple-order discrepancy confirmed as a prompt typo**
+
 User confirmed a flagged `D5` entry from Update 7 (`('P2', 'D2')` vs. the
 rule's `('D2', 'P2')`) was a typo in their original prompt, not an
 exception to the rule. No code changes required — `tasks.py` was already
 correct.
 
 **Update 9 — Random Rectangle Corner Assignment spec added (docs only)**
+
 User implemented a new, separate feature directly (`rectangle_value.py`,
 plus an update to `main.py`) without Claude's involvement in the code.
 Per explicit request, only this file was touched that session: the
@@ -403,9 +491,11 @@ reference table. Claude has not written or verified `rectangle_value.py`
 or its `main.py` integration — §5 describes the *intended* spec only.
 
 **Update 10 — Node addresses added to People Pool and Driver Tasks**
+
 Added `addresses.py` (`assign_addresses()`), giving every one of the 11
 people-pool nodes a unique random letter from `{a..k}`. Wired into
 `main.py` right after buyer/seller/driver labels are known. Updated:
+
 - `display.py`'s `print_people_pool()` to print `Name - letter` for every
   node, and its tuple formatter to render 3-tuples instead of 2-tuples.
 - `tasks.py`'s `compute_driver_tasks()` to take an `addresses` dict and
@@ -425,32 +515,64 @@ duplicate "§4"/"§9" headers, a stale description of the deleted
 single-file script, duplicate "How to run" commands) — see the note at
 the top of this Change Log section.
 
+**Update 11 — GitHub collaboration workflow implemented**
+
+Added `CONTRIBUTING.md` as the canonical issue-first collaboration workflow,
+including issue scope, issue-numbered branches, commit and pull-request rules,
+review readiness, structured labels, blocked-work handling, project statuses,
+and coding-agent behavior. Aligned `AGENTS.md` and `TEAM_PIPELINE.md` with it,
+expanded the implementation issue and pull-request templates, and added a bug
+report template. Simulator behavior was not changed.
+
+**Update 12 — Importable simulator and deterministic regression suite**
+
+Added side-effect-free package exports in `__init__.py` and computation-only
+orchestration in `simulator.py`. The public `run_simulation(seed=None,
+rng=None)` entry point returns a structured `SimulationResult`; a seed creates
+an isolated deterministic generator, while the no-argument path preserves the
+existing global-random CLI behavior. Added backward-compatible optional RNG
+injection to people selection, addresses, driver assignment, and the existing
+rectangle helper. Converted internal imports to package-safe imports while
+keeping `python marketplace_sim_v1/main.py` working through a thin
+compatibility wrapper. Added 12 standard-library `unittest` regression tests
+for imports, determinism, core invariants, priority stability, driver tasks,
+CLI execution, and output-section order. Deadlock and rectangle semantics
+were not changed.
+
+**Update 13 — Marketplace v2 Django foundation added**
+
+Added a separate `marketplace-v2/` Django 5.2 LTS foundation.
+
+The v2 foundation is intentionally isolated from `marketplace_sim_v1/`.
+It provides environment-based settings, PostgreSQL configuration, Docker
+Compose services for the web application and PostgreSQL, a `/health/`
+endpoint, and initial project smoke tests.
+
+Domain applications, models, authentication roles, payments, logistics,
+and other marketplace functionality remain intentionally unimplemented and
+are reserved for their scheduled pipeline issues.
+
 ---
 
-## 11. Open items for future contributors
+## 12. Open items for future contributors
+
+### v1 simulator
 
 - Deadlock protection (§6) is currently **off**. Decide whether/when to
   re-add it, and whether it should be default-on or opt-in.
-- No automated test suite yet — verification so far has been manual
-  (multiple runs + hand-worked example checks).
+- Automated CI enforcement remains a separate C0.2 task.
 - Consider whether buyer/seller pairs should also be checked for any
   structural constraints (currently unconstrained beyond uniqueness).
 - `rectangle_value.py` and its `main.py` integration (§5) have not been
   reviewed or tested by Claude — only the spec is documented there. Worth
   a review pass against the acceptance tests in §5 when convenient.
 
+### Marketplace v2
 
----
-
-## Marketplace v2 — Django foundation
-
-A separate `marketplace-v2/` directory now contains the new Django 5.2 LTS
-application foundation. It is intentionally isolated from `marketplace_sim_v1/`;
-the v1 simulator has not been moved, rewritten, or modified.
-
-The v2 foundation currently provides environment-based Django settings,
-PostgreSQL configuration, Docker Compose services for the web application and
-PostgreSQL, a `/health/` endpoint, and initial project smoke tests. Domain apps,
-models, authentication roles, payments, and logistics are intentionally not
-implemented in this foundation step and remain owned by their scheduled
-pipeline issues.
+- Continue the scheduled Django foundation pipeline.
+- Add domain models only through explicitly scoped implementation issues.
+- Add authentication/authorization roles through their scheduled task.
+- Add marketplace, payment, and logistics functionality through their
+  respective pipeline stages.
+- Maintain isolation between v1 and v2 until an explicit migration or
+  extraction task is approved.
