@@ -17,6 +17,7 @@ from priority import (
     build_priority_linked_list,
 )
 from tasks import compute_driver_tasks
+from addresses import assign_addresses
 from rectangle_value import get_corner_positions
 import display
 
@@ -43,6 +44,16 @@ def main():
     driver_label_to_name = dict(zip(driver_labels, driver_names))
 
     # ------------------------------------------------------------------
+    # Node addresses (one unique letter per buyer/seller/driver label)
+    # ------------------------------------------------------------------
+    node_labels = []
+    for txn in transactions:
+        node_labels.append(txn["buyer_label"])
+        node_labels.append(txn["seller_label"])
+    node_labels.extend(driver_labels)
+    addresses = assign_addresses(node_labels)
+
+    # ------------------------------------------------------------------
     # Driver assignment + delivery-count hashmap
     # ------------------------------------------------------------------
     driver_counts = {label: 0 for label in driver_labels}
@@ -56,7 +67,7 @@ def main():
     # ------------------------------------------------------------------
     # Output: people, transactions, delivery counts
     # ------------------------------------------------------------------
-    display.print_people_pool(transactions, driver_labels, driver_label_to_name)
+    display.print_people_pool(transactions, driver_labels, driver_label_to_name, addresses)
     display.print_initial_hashmap(driver_labels)
     display.print_transactions(transactions, driver_label_to_name)
     display.print_final_hashmap(driver_counts)
@@ -80,7 +91,7 @@ def main():
     # Driver tasks hashmap (key order == priority linked list order)
     # ------------------------------------------------------------------
     ordered_driver_labels = [node.label for node in priority_list]
-    driver_tasks = compute_driver_tasks(transactions, ordered_driver_labels)
+    driver_tasks = compute_driver_tasks(transactions, ordered_driver_labels, addresses)
     display.print_driver_tasks(driver_tasks)
 
 

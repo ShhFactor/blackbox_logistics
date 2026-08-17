@@ -5,20 +5,25 @@ without touching the other.
 """
 
 
-def _format_tuple_list(pairs):
+def _format_tuple_list(triples):
     """
-    Render a list of 2-tuples without the quote marks Python's default
-    repr would add, e.g. [('P1', 'S1')] -> '[(P1, S1)]'.
+    Render a list of 3-tuples without the quote marks Python's default
+    repr would add, e.g. [('P1', 'S1', 'i')] -> '[(P1, S1, i)]'.
     """
-    return "[" + ", ".join(f"({a}, {b})" for a, b in pairs) + "]"
+    return "[" + ", ".join(f"({a}, {b}, {c})" for a, b, c in triples) + "]"
 
 
-def print_people_pool(transactions, driver_labels, driver_label_to_name):
+def print_people_pool(transactions, driver_labels, driver_label_to_name, addresses):
     print("=== People Pool Selected ===")
     for txn in transactions:
-        print(f"  {txn['buyer_label']}: {txn['buyer_name']}   |   {txn['seller_label']}: {txn['seller_name']}")
+        buyer_label = txn["buyer_label"]
+        seller_label = txn["seller_label"]
+        print(
+            f"  {buyer_label}: {txn['buyer_name']} - {addresses[buyer_label]}   |   "
+            f"{seller_label}: {txn['seller_name']} - {addresses[seller_label]}"
+        )
     for label in driver_labels:
-        print(f"  {label}: {driver_label_to_name[label]}")
+        print(f"  {label}: {driver_label_to_name[label]} - {addresses[label]}")
 
 
 def print_initial_hashmap(driver_labels):
@@ -62,5 +67,5 @@ def print_priority_linked_list(priority_list):
 
 def print_driver_tasks(driver_tasks):
     print("\n=== Driver Tasks ===")
-    for label, pairs in driver_tasks.items():
-        print(f"  {label} -> {_format_tuple_list(pairs)}")
+    for label, triples in driver_tasks.items():
+        print(f"  {label} -> {_format_tuple_list(triples)}")
